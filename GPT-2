@@ -1,0 +1,55 @@
+import torch
+from transformers import GPT2LMHeadModel, GPT2Tokenizer
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Load pre-trained model and tokenizer
+model_name = 'gpt2'
+model = GPT2LMHeadModel.from_pretrained(model_name)
+tokenizer = GPT2Tokenizer.from_pretrained(model_name)
+
+# Ensure the model is in evaluation mode
+model.eval()
+
+# Define sentences with placeholders and their expected completions
+sentences_with_placeholders = [
+    ("The weather today is really [MASK].", "The weather today is really nice."),
+    ("He decided to [MASK] to the store.", "He decided to go to the store."),
+    ("The cake tastes absolutely [MASK].", "The cake tastes absolutely delicious."),
+    ("She couldn't believe her [MASK] when she saw the surprise.", "She couldn't believe her eyes when she saw the surprise.")
+]
+
+# Function to fill in the placeholder using GPT-2
+def fill_in_the_placeholder(sentence, mask_token="[MASK]"):
+    mask_pos = sentence.index(mask_token)
+    prefix = sentence[:mask_pos]
+    suffix = sentence[mask_pos + len(mask_token):]
+    
+    input_ids = tokenizer.encode(prefix, return_tensors='pt')
+    output_ids = model.generate(input_ids, max_length=50, num_return_sequences=1)
+    output_text = tokenizer.decode(output_ids[0], skip_special_tokens=True)
+    
+    # Extract the generated part and reconstruct the sentence
+    generated_part = output_text[len(prefix):].split('.')[0]
+    filled_sentence = prefix + generated_part + suffix
+    
+    return filled_sentence
+
+# Generate completions and compare with expected completions
+results = []
+for sentence, expected in sentences_with_placeholders:
+    generated = fill_in_the_placeholder(sentence)
+    results.append((sentence, expected, generated))
+
+# Create a DataFrame of the results
+df = pd.DataFrame(results, columns=["Original Sentence", "Expected Sentence", "Generated Sentence"])
+
+# Print the DataFrame to inspect the results
+print(df)
+
+# Plotting the table graphically
+plt.figure(figsize=(12, 6))
+sns.heatmap(pd.DataFrame(df["Generated Sentence"].values.reshape(-1, 1)), annot=df, fmt='s', cmap='YlGnBu', cbar=False, linewidths=.5)
+plt.title('GPT-2 Data Insertion and Rewrite Performance')
+plt.show()
